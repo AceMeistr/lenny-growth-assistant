@@ -60,6 +60,11 @@ Designed with a **Human-Centric Native & AI-Negative aesthetic** (no neon purple
 Ensure Docker Desktop is running, then execute:
 
 ```bash
+# Pull and run the pre-built published image from GitHub Container Registry:
+docker pull ghcr.io/acemeistr/lenny-growth-assistant:latest
+docker run -p 8000:8000 ghcr.io/acemeistr/lenny-growth-assistant:latest
+
+# Or build and launch with docker-compose (including Postgres & pgvector):
 docker compose up --build
 ```
 
