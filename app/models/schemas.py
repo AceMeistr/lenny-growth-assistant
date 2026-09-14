@@ -113,3 +113,8 @@ class ArtifactResponse(BaseModel):
     title: Optional[str]
     content: str
     created_at: datetime
+
+
+class BatchDeleteRequest(BaseModel):
+    ids: List[str]
+

@@ -29,7 +29,8 @@ from app.models.schemas import (
     ChatTurnResponse,
     ArtifactResponse,
     ModelConfigTestRequest,
-    ModelConfigTestResponse
+    ModelConfigTestResponse,
+    BatchDeleteRequest
 )
 from app.providers.factory import ProviderFactory
 from app.services.agent import AgentOrchestrator
@@ -267,6 +268,19 @@ def delete_session(session_id: str, db: DBSession = Depends(get_db)):
     return {"status": "deleted", "id": session_id}
 
 
+@app.post("/sessions/batch-delete", tags=["Sessions"])
+def batch_delete_sessions(req: BatchDeleteRequest, db: DBSession = Depends(get_db)):
+    """Delete multiple sessions and their associated messages/artifacts in a single transaction."""
+    if not req.ids:
+        return {"status": "ok", "deleted_count": 0}
+    db.query(Message).filter(Message.session_id.in_(req.ids)).delete(synchronize_session=False)
+    db.query(Artifact).filter(Artifact.session_id.in_(req.ids)).delete(synchronize_session=False)
+    count = db.query(ChatSession).filter(ChatSession.id.in_(req.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "deleted_count": count}
+
+
+
 # --- Message & Conversation Endpoints ---
 
 @app.post("/sessions/{session_id}/messages", response_model=ChatTurnResponse, tags=["Chat"])
@@ -366,6 +380,17 @@ def delete_artifact(artifact_id: str, db: DBSession = Depends(get_db)):
     db.delete(artifact)
     db.commit()
     return {"status": "deleted", "id": artifact_id}
+
+
+@app.post("/artifacts/batch-delete", tags=["Artifacts"])
+def batch_delete_artifacts(req: BatchDeleteRequest, db: DBSession = Depends(get_db)):
+    """Delete multiple artifacts in a single transaction."""
+    if not req.ids:
+        return {"status": "ok", "deleted_count": 0}
+    count = db.query(Artifact).filter(Artifact.id.in_(req.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "deleted_count": count}
+
 
 
 # --- Static UI Mount ---

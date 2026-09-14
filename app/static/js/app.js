@@ -11,8 +11,12 @@
 // Application State
 let currentSessionId = null;
 let currentArtifact = null;
+let allSessions = [];
 let allArtifacts = [];
 let isProcessing = false;
+let activeSidebarTab = "chats";
+let selectedSessionIds = new Set();
+let selectedArtifactIds = new Set();
 
 // Memoize formatted markdown to prevent redundant regex passes
 const _markdownCache = new Map();
@@ -52,6 +56,12 @@ const sessionCountEl = document.getElementById("sessionCount");
 const artifactCountEl = document.getElementById("artifactCount");
 const newSessionBtn = document.getElementById("newSessionBtn");
 
+// Selection Toolbar Elements
+const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+const selectionCounter = document.getElementById("selectionCounter");
+const btnBatchDelete = document.getElementById("btnBatchDelete");
+const batchCountEl = document.getElementById("batchCount");
+
 // Chat Pane Elements
 const chatMessagesEl = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
@@ -67,6 +77,7 @@ const openSettingsBtn = document.getElementById("openSettingsBtn");
 // Artifact Studio Elements
 const artifactStudio = document.getElementById("artifactStudio");
 const artifactTitle = document.getElementById("artifactTitle");
+const artifactTypeBadge = document.getElementById("artifactTypeBadge");
 const artifactFileSelect = document.getElementById("artifactFileSelect");
 const artifactIframe = document.getElementById("artifactIframe");
 const artifactMarkdown = document.getElementById("artifactMarkdown");
@@ -78,6 +89,7 @@ const tabSource = document.getElementById("tabSource");
 const btnCopyArtifact = document.getElementById("btnCopyArtifact");
 const btnDownloadArtifact = document.getElementById("btnDownloadArtifact");
 const btnCloseArtifact = document.getElementById("btnCloseArtifact");
+
 
 // Settings Modal Elements
 const settingsModal = document.getElementById("settingsModal");
@@ -113,6 +125,16 @@ function bindEvents() {
   }
   if (newSessionBtn) {
     newSessionBtn.addEventListener("click", createNewSession);
+  }
+
+  // Multi-select Master Checkbox
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener("change", handleSelectAllToggle);
+  }
+
+  // Batch Delete Button
+  if (btnBatchDelete) {
+    btnBatchDelete.addEventListener("click", handleBatchDelete);
   }
 
   // Chat Form & Input
@@ -212,6 +234,7 @@ function bindEvents() {
 
 // Sidebar Tab Switcher (Conversations vs Artifacts)
 function switchSidebarTab(tab) {
+  activeSidebarTab = tab;
   if (tab === "chats") {
     sidebarTabChats.classList.add("active");
     sidebarTabArtifacts.classList.remove("active");
@@ -223,7 +246,142 @@ function switchSidebarTab(tab) {
     sessionListEl.style.display = "none";
     artifactListEl.style.display = "flex";
   }
+  updateSelectionToolbar();
 }
+
+function updateSelectionToolbar() {
+  const isChats = activeSidebarTab === "chats";
+  const activeSet = isChats ? selectedSessionIds : selectedArtifactIds;
+  const totalCount = isChats ? allSessions.length : allArtifacts.length;
+
+  if (batchCountEl) batchCountEl.textContent = activeSet.size;
+
+  if (activeSet.size > 0) {
+    if (selectionCounter) {
+      selectionCounter.style.display = "inline-flex";
+      selectionCounter.textContent = `${activeSet.size} selected`;
+    }
+    if (btnBatchDelete) btnBatchDelete.disabled = false;
+  } else {
+    if (selectionCounter) {
+      selectionCounter.style.display = "none";
+      selectionCounter.textContent = "0 selected";
+    }
+    if (btnBatchDelete) btnBatchDelete.disabled = true;
+  }
+
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked = totalCount > 0 && activeSet.size === totalCount;
+    selectAllCheckbox.indeterminate = activeSet.size > 0 && activeSet.size < totalCount;
+  }
+}
+
+function handleSelectAllToggle() {
+  const isChats = activeSidebarTab === "chats";
+  const isChecked = selectAllCheckbox.checked;
+
+  if (isChats) {
+    if (isChecked) {
+      allSessions.forEach(s => selectedSessionIds.add(s.id));
+    } else {
+      selectedSessionIds.clear();
+    }
+    renderSessionList(allSessions);
+  } else {
+    if (isChecked) {
+      allArtifacts.forEach(a => selectedArtifactIds.add(a.id));
+    } else {
+      selectedArtifactIds.clear();
+    }
+    renderArtifactFilesList(allArtifacts);
+  }
+  updateSelectionToolbar();
+}
+
+function toggleSessionSelection(sessionId, checked) {
+  if (checked) {
+    selectedSessionIds.add(sessionId);
+  } else {
+    selectedSessionIds.delete(sessionId);
+  }
+  const row = document.querySelector(`.session-row[data-id="${sessionId}"]`);
+  if (row) {
+    row.classList.toggle("selected", checked);
+  }
+  updateSelectionToolbar();
+}
+
+function toggleArtifactSelection(artifactId, checked) {
+  if (checked) {
+    selectedArtifactIds.add(artifactId);
+  } else {
+    selectedArtifactIds.delete(artifactId);
+  }
+  const row = document.querySelector(`.artifact-row[data-id="${artifactId}"]`);
+  if (row) {
+    row.classList.toggle("selected", checked);
+  }
+  updateSelectionToolbar();
+}
+
+async function handleBatchDelete() {
+  const isChats = activeSidebarTab === "chats";
+  const idsToDelete = isChats ? Array.from(selectedSessionIds) : Array.from(selectedArtifactIds);
+  if (idsToDelete.length === 0) return;
+
+  const typeName = isChats ? "conversations" : "artifacts";
+  if (!confirm(`Are you sure you want to delete ${idsToDelete.length} selected ${typeName}?`)) {
+    return;
+  }
+
+  try {
+    if (isChats) {
+      const res = await fetch("/sessions/batch-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: idsToDelete })
+      });
+      if (!res.ok) throw new Error("Failed to batch delete sessions");
+
+      const wasCurrentDeleted = selectedSessionIds.has(currentSessionId);
+      selectedSessionIds.clear();
+
+      if (wasCurrentDeleted) {
+        currentSessionId = null;
+        chatMessagesEl.innerHTML = "";
+      }
+
+      await loadSessions();
+      await loadArtifactsList();
+
+      if (!currentSessionId) {
+        if (allSessions.length > 0) {
+          await selectSession(allSessions[0].id);
+        } else {
+          await createNewSession();
+        }
+      }
+    } else {
+      const res = await fetch("/artifacts/batch-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: idsToDelete })
+      });
+      if (!res.ok) throw new Error("Failed to batch delete artifacts");
+
+      if (currentArtifact && selectedArtifactIds.has(currentArtifact.id)) {
+        closeActiveArtifact();
+      }
+      selectedArtifactIds.clear();
+      await loadArtifactsList();
+    }
+  } catch (err) {
+    console.error("Batch delete failed:", err);
+  } finally {
+    updateSelectionToolbar();
+  }
+}
+
 
 // Health Observability
 async function checkHealth() {
@@ -259,48 +417,93 @@ async function loadSessions() {
 }
 
 function renderSessionList(sessions) {
+  allSessions = sessions;
   sessionListEl.innerHTML = "";
-  sessions.forEach(s => {
-    const item = document.createElement("div");
-    item.className = "session-item " + (s.id === currentSessionId ? "active" : "");
-    item.setAttribute("role", "option");
-    item.setAttribute("aria-selected", s.id === currentSessionId ? "true" : "false");
-    item.tabIndex = 0;
 
-    item.onclick = (e) => {
-      if (e.target.closest(".session-delete-btn")) return;
-      selectSession(s.id);
+  if (sessions.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "padding: 24px 16px; text-align: center; color: var(--ink-muted); font-size: 0.8rem;";
+    empty.textContent = "No conversations yet. Start a new one!";
+    sessionListEl.appendChild(empty);
+    updateSelectionToolbar();
+    return;
+  }
+
+  sessions.forEach(s => {
+    const isSelected = selectedSessionIds.has(s.id);
+    const isActive = s.id === currentSessionId;
+
+    const row = document.createElement("div");
+    row.className = `table-row session-row ${isActive ? "active" : ""} ${isSelected ? "selected" : ""}`;
+    row.setAttribute("role", "row");
+    row.setAttribute("data-id", s.id);
+
+    // Checkbox cell
+    const checkCell = document.createElement("div");
+    checkCell.className = "table-cell checkbox-cell";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.className = "row-checkbox";
+    chk.checked = isSelected;
+    chk.title = "Select for bulk action";
+    chk.onclick = (e) => {
+      e.stopPropagation();
+      toggleSessionSelection(s.id, chk.checked);
     };
-    item.onkeydown = (e) => {
-      if (e.key === "Enter") selectSession(s.id);
-    };
+    checkCell.appendChild(chk);
+
+    // Info cell
+    const infoCell = document.createElement("div");
+    infoCell.className = "table-cell info-cell";
 
     const title = document.createElement("div");
-    title.className = "session-title";
+    title.className = "row-title";
     title.textContent = s.user_metadata?.title || "Growth Conversation";
+    title.title = title.textContent;
 
     const meta = document.createElement("div");
-    meta.className = "session-meta";
-    const date = s.updated_at
+    meta.className = "row-meta";
+
+    const badge = document.createElement("span");
+    badge.className = "row-badge provider";
+    badge.textContent = (s.active_provider || "AI").toUpperCase();
+
+    const dateSpan = document.createElement("span");
+    dateSpan.textContent = s.updated_at
       ? new Date(s.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : "";
-    meta.textContent = `${s.active_provider} · ${date}`;
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "session-delete-btn";
-    deleteBtn.innerHTML = "&times;";
-    deleteBtn.title = "Delete conversation";
-    deleteBtn.setAttribute("aria-label", "Delete conversation");
-    deleteBtn.onclick = (e) => {
+    meta.appendChild(badge);
+    meta.appendChild(dateSpan);
+    infoCell.appendChild(title);
+    infoCell.appendChild(meta);
+
+    // Action cell
+    const actionCell = document.createElement("div");
+    actionCell.className = "table-cell action-cell";
+    const delBtn = document.createElement("button");
+    delBtn.className = "row-delete-btn";
+    delBtn.innerHTML = "&times;";
+    delBtn.title = "Delete conversation";
+    delBtn.setAttribute("aria-label", "Delete conversation");
+    delBtn.onclick = (e) => {
       e.stopPropagation();
       deleteSession(s.id);
     };
+    actionCell.appendChild(delBtn);
 
-    item.appendChild(title);
-    item.appendChild(meta);
-    item.appendChild(deleteBtn);
-    sessionListEl.appendChild(item);
+    row.onclick = () => selectSession(s.id);
+    row.onkeydown = (e) => {
+      if (e.key === "Enter") selectSession(s.id);
+    };
+
+    row.appendChild(checkCell);
+    row.appendChild(infoCell);
+    row.appendChild(actionCell);
+    sessionListEl.appendChild(row);
   });
+
+  updateSelectionToolbar();
 }
 
 async function createNewSession() {
@@ -331,6 +534,7 @@ async function deleteSession(sessionId) {
     const res = await fetch(`/sessions/${sessionId}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete session");
 
+    selectedSessionIds.delete(sessionId);
     if (currentSessionId === sessionId) {
       currentSessionId = null;
       chatMessagesEl.innerHTML = "";
@@ -353,6 +557,8 @@ async function deleteSession(sessionId) {
     }
   } catch (err) {
     console.error("Error deleting session:", err);
+  } finally {
+    updateSelectionToolbar();
   }
 }
 
@@ -361,10 +567,15 @@ async function selectSession(sessionId) {
   currentSessionId = sessionId;
   chatMessagesEl.innerHTML = "";
 
-  document.querySelectorAll(".session-item").forEach(el => {
+  document.querySelectorAll(".session-row").forEach(el => {
     el.classList.remove("active");
     el.setAttribute("aria-selected", "false");
   });
+  const activeRow = document.querySelector(`.session-row[data-id="${sessionId}"]`);
+  if (activeRow) {
+    activeRow.classList.add("active");
+    activeRow.setAttribute("aria-selected", "true");
+  }
 
   try {
     const res = await fetch(`/sessions/${sessionId}`);
@@ -428,6 +639,7 @@ async function loadArtifactsList() {
 }
 
 function renderArtifactFilesList(artifacts) {
+  allArtifacts = artifacts;
   if (!artifactListEl) return;
   artifactListEl.innerHTML = "";
 
@@ -436,58 +648,82 @@ function renderArtifactFilesList(artifacts) {
     empty.style.cssText = "padding: 24px 16px; text-align: center; color: var(--ink-muted); font-size: 0.8rem;";
     empty.textContent = "No generated artifacts yet. Ask for a table, essay, or HTML snippet!";
     artifactListEl.appendChild(empty);
+    updateSelectionToolbar();
     return;
   }
 
   artifacts.forEach(a => {
-    const item = document.createElement("div");
-    const isSelected = currentArtifact && currentArtifact.id === a.id;
-    item.className = "artifact-file-item " + (isSelected ? "active" : "");
-    item.setAttribute("role", "option");
-    item.setAttribute("aria-selected", isSelected ? "true" : "false");
-    item.tabIndex = 0;
+    const isSelected = selectedArtifactIds.has(a.id);
+    const isActive = currentArtifact && currentArtifact.id === a.id;
 
-    item.onclick = (e) => {
-      if (e.target.closest(".session-delete-btn")) return;
-      selectArtifact(a.id);
+    const row = document.createElement("div");
+    row.className = `table-row artifact-row ${isActive ? "active" : ""} ${isSelected ? "selected" : ""}`;
+    row.setAttribute("role", "row");
+    row.setAttribute("data-id", a.id);
+
+    // Checkbox cell
+    const checkCell = document.createElement("div");
+    checkCell.className = "table-cell checkbox-cell";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.className = "row-checkbox";
+    chk.checked = isSelected;
+    chk.title = "Select for bulk action";
+    chk.onclick = (e) => {
+      e.stopPropagation();
+      toggleArtifactSelection(a.id, chk.checked);
     };
+    checkCell.appendChild(chk);
+
+    // Info cell
+    const infoCell = document.createElement("div");
+    infoCell.className = "table-cell info-cell";
 
     const title = document.createElement("div");
-    title.className = "artifact-file-title";
+    title.className = "row-title";
     title.textContent = a.title || "Generated Artifact";
+    title.title = title.textContent;
 
     const meta = document.createElement("div");
-    meta.className = "artifact-file-meta";
+    meta.className = "row-meta";
 
     const badge = document.createElement("span");
-    badge.className = `file-badge ${a.type}`;
-    badge.textContent = a.type.toUpperCase();
+    badge.className = `row-badge ${a.type || "html"}`;
+    badge.textContent = (a.type || "HTML").toUpperCase();
 
-    const date = a.created_at
+    const dateSpan = document.createElement("span");
+    dateSpan.textContent = a.created_at
       ? new Date(a.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : "";
 
-    const dateSpan = document.createElement("span");
-    dateSpan.textContent = date;
-
     meta.appendChild(badge);
     meta.appendChild(dateSpan);
+    infoCell.appendChild(title);
+    infoCell.appendChild(meta);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "session-delete-btn";
-    deleteBtn.innerHTML = "&times;";
-    deleteBtn.title = "Delete artifact file";
-    deleteBtn.setAttribute("aria-label", "Delete artifact file");
-    deleteBtn.onclick = (e) => {
+    // Action cell
+    const actionCell = document.createElement("div");
+    actionCell.className = "table-cell action-cell";
+    const delBtn = document.createElement("button");
+    delBtn.className = "row-delete-btn";
+    delBtn.innerHTML = "&times;";
+    delBtn.title = "Delete artifact file";
+    delBtn.setAttribute("aria-label", "Delete artifact file");
+    delBtn.onclick = (e) => {
       e.stopPropagation();
       deleteArtifactFile(a.id);
     };
+    actionCell.appendChild(delBtn);
 
-    item.appendChild(title);
-    item.appendChild(meta);
-    item.appendChild(deleteBtn);
-    artifactListEl.appendChild(item);
+    row.onclick = () => selectArtifact(a.id);
+
+    row.appendChild(checkCell);
+    row.appendChild(infoCell);
+    row.appendChild(actionCell);
+    artifactListEl.appendChild(row);
   });
+
+  updateSelectionToolbar();
 }
 
 function populateArtifactSelectDropdown(artifacts) {
@@ -497,7 +733,7 @@ function populateArtifactSelectDropdown(artifacts) {
   const defaultOpt = document.createElement("option");
   defaultOpt.value = "";
   defaultOpt.textContent = artifacts.length > 0
-    ? `-- Switch Artifact File (${artifacts.length}) --`
+    ? `-- Select Artifact (${artifacts.length}) --`
     : "-- No Artifacts Generated --";
   artifactFileSelect.appendChild(defaultOpt);
 
@@ -530,14 +766,18 @@ async function deleteArtifactFile(artifactId) {
     const res = await fetch(`/artifacts/${artifactId}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete artifact");
 
+    selectedArtifactIds.delete(artifactId);
     if (currentArtifact && currentArtifact.id === artifactId) {
       closeActiveArtifact();
     }
     await loadArtifactsList();
   } catch (err) {
     console.error("Error deleting artifact file:", err);
+  } finally {
+    updateSelectionToolbar();
   }
 }
+
 
 // Messaging Flow
 async function handleSendMessage() {
@@ -755,6 +995,7 @@ function closeStudio() {
 function closeActiveArtifact() {
   currentArtifact = null;
   artifactTitle.textContent = "Artifact Studio";
+  if (artifactTypeBadge) artifactTypeBadge.style.display = "none";
   if (artifactFileSelect) artifactFileSelect.value = "";
   emptyArtifact.style.display = "flex";
   artifactIframe.style.display = "none";
@@ -762,9 +1003,8 @@ function closeActiveArtifact() {
   artifactRawContainer.style.display = "none";
 
   // Deselect active state in sidebar list
-  document.querySelectorAll(".artifact-file-item").forEach(el => {
+  document.querySelectorAll(".artifact-row").forEach(el => {
     el.classList.remove("active");
-    el.setAttribute("aria-selected", "false");
   });
 
   closeStudio();
@@ -786,27 +1026,31 @@ function displayArtifact(artifact) {
   openStudio();
   emptyArtifact.style.display = "none";
   artifactTitle.textContent = artifact.title || "Generated Artifact";
+  artifactTitle.title = artifact.title || "Generated Artifact";
 
-  // Synchronize dropdown selection
+  if (artifactTypeBadge) {
+    artifactTypeBadge.style.display = "inline-block";
+    artifactTypeBadge.textContent = (artifact.type || "HTML").toUpperCase();
+    artifactTypeBadge.className = `studio-type-badge ${artifact.type || "html"}`;
+  }
+
+  // Synchronize dropdown selection in the dedicated subbar
   if (artifactFileSelect) {
     artifactFileSelect.value = artifact.id || "";
   }
 
-  // Synchronize sidebar artifacts list highlight
-  document.querySelectorAll(".artifact-file-item").forEach(el => {
+  // Synchronize sidebar artifacts table highlight
+  document.querySelectorAll(".artifact-row").forEach(el => {
     el.classList.remove("active");
-    el.setAttribute("aria-selected", "false");
   });
-  const activeEl = [...document.querySelectorAll(".artifact-file-item")].find(el =>
-    el.querySelector(".artifact-file-title")?.textContent === artifact.title
-  );
-  if (activeEl) {
-    activeEl.classList.add("active");
-    activeEl.setAttribute("aria-selected", "true");
+  const activeRow = document.querySelector(`.artifact-row[data-id="${artifact.id}"]`);
+  if (activeRow) {
+    activeRow.classList.add("active");
   }
 
   showArtifactView("rendered");
 }
+
 
 function showArtifactView(viewType) {
   tabRendered.className = "studio-tab " + (viewType === "rendered" ? "active" : "");

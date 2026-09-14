@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="/css/design-system.css?v=3.1">
+  <link rel="stylesheet" href="/css/design-system.css?v=5.0">
 </head>
 <body>
   <div class="app-container" id="appContainer">
@@ -23,21 +23,43 @@
         <button id="newSessionBtn" class="new-session-btn" aria-label="Start new conversation">
           <span>+ New Conversation</span>
         </button>
-      <div class="sidebar-tab-switcher">
-        <button id="sidebarTabChats" class="sidebar-tab active">
-          💬 Chats (<span id="sessionCount">0</span>)
-        </button>
-        <button id="sidebarTabArtifacts" class="sidebar-tab">
-          📑 Artifacts (<span id="artifactCount">0</span>)
-        </button>
       </div>
 
-      <div class="sidebar-sessions" id="sessionList" role="listbox" aria-label="Conversational Sessions">
-        <!-- Sessions dynamically injected here -->
+      <!-- Sidebar Tabs: Chats vs Artifacts -->
+      <div class="sidebar-nav-section">
+        <div class="sidebar-tab-switcher">
+          <button id="sidebarTabChats" class="sidebar-tab active">
+            💬 Chats (<span id="sessionCount">0</span>)
+          </button>
+          <button id="sidebarTabArtifacts" class="sidebar-tab">
+            📑 Artifacts (<span id="artifactCount">0</span>)
+          </button>
+        </div>
+
+        <!-- Selection Toolbar: Multi-select master controls -->
+        <div class="selection-toolbar" id="selectionToolbar">
+          <label class="master-select-label" title="Select or deselect all items in current view">
+            <input type="checkbox" id="selectAllCheckbox" class="selection-checkbox" />
+            <span class="select-label-text">Select All</span>
+          </label>
+          <div class="selection-actions">
+            <span id="selectionCounter" class="selection-count-badge" style="display: none;">0 selected</span>
+            <button id="btnBatchDelete" class="batch-delete-btn" disabled title="Delete selected items">
+              🗑 Delete (<span id="batchCount">0</span>)
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="sidebar-artifacts" id="artifactList" role="listbox" aria-label="Artifact Files" style="display: none;">
-        <!-- Artifact files dynamically injected here -->
+      <!-- Table Scrollable Area for Chats and Artifacts -->
+      <div class="sidebar-table-scroll" id="sidebarTableScroll">
+        <div class="selection-table" id="sessionList" role="table" aria-label="Conversational Sessions">
+          <!-- Sessions dynamically injected here as table rows -->
+        </div>
+
+        <div class="selection-table" id="artifactList" role="table" aria-label="Artifact Files" style="display: none;">
+          <!-- Artifact files dynamically injected here as table rows -->
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -111,18 +133,14 @@
 
     <!-- 3. Right Artifact Studio (Claude-style Side Panel) -->
     <aside class="artifact-studio" id="artifactStudio" aria-label="Artifact Studio">
+      <!-- 3A. Main Studio Header: Title & Global Actions -->
       <div class="studio-header">
         <div class="studio-title-area">
+          <span class="studio-icon">📑</span>
           <span class="studio-title" id="artifactTitle">Artifact Studio</span>
-          <select id="artifactFileSelect" class="artifact-file-select" title="Switch between generated artifacts" aria-label="Select Artifact File">
-            <option value="">-- Switch Artifact (0) --</option>
-          </select>
+          <span class="studio-type-badge" id="artifactTypeBadge" style="display: none;">HTML</span>
         </div>
         <div class="studio-actions">
-          <div class="studio-tabs">
-            <button class="studio-tab active" id="tabRendered" title="View formatted rendering">Rendered</button>
-            <button class="studio-tab" id="tabSource" title="View raw source code">Raw</button>
-          </div>
           <button class="studio-action-btn" id="btnCopyArtifact" title="Copy raw code to clipboard">
             📋 Copy
           </button>
@@ -132,6 +150,24 @@
           <button class="studio-action-btn close-artifact-btn" id="btnCloseArtifact" title="Close this artifact">
             ✕ Close
           </button>
+        </div>
+      </div>
+
+      <!-- 3B. Dedicated Sub-Bar: Artifact File Switcher & View Mode Sub-Options (Resolves all conflicting design issues) -->
+      <div class="studio-subbar" id="studioSubbar">
+        <div class="studio-subbar-select-group">
+          <label class="studio-subbar-label" for="artifactFileSelect">Artifact:</label>
+          <select id="artifactFileSelect" class="artifact-subbar-select" title="Switch between generated artifacts" aria-label="Select Artifact File">
+            <option value="">-- No Artifact Selected --</option>
+          </select>
+        </div>
+
+        <div class="studio-subbar-view-group">
+          <span class="studio-subbar-label">View:</span>
+          <div class="studio-tabs">
+            <button class="studio-tab active" id="tabRendered" title="View formatted rendering">👁 Rendered</button>
+            <button class="studio-tab" id="tabSource" title="View raw source code">&lt;/&gt; Raw</button>
+          </div>
         </div>
       </div>
 
@@ -214,6 +250,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=4.0"></script>
+  <script src="/js/app.js?v=5.0"></script>
 </body>
 </html>
+

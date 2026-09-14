@@ -84,3 +84,20 @@ def test_send_message_endpoint():
     assert len(data["citations"]) > 0
     assert data["provider_used"] == "ollama"
     assert len(data["assistant_message"]["content"]) > 0
+
+
+def test_batch_delete_sessions():
+    res1 = client.post("/sessions", json={"user_metadata": {"title": "Batch Test 1"}})
+    res2 = client.post("/sessions", json={"user_metadata": {"title": "Batch Test 2"}})
+    assert res1.status_code == 201
+    assert res2.status_code == 201
+    id1 = res1.json()["id"]
+    id2 = res2.json()["id"]
+
+    batch_del = client.post("/sessions/batch-delete", json={"ids": [id1, id2]})
+    assert batch_del.status_code == 200
+    assert batch_del.json()["deleted_count"] == 2
+
+    assert client.get(f"/sessions/{id1}").status_code == 404
+    assert client.get(f"/sessions/{id2}").status_code == 404
+
