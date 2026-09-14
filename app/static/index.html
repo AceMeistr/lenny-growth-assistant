@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Lenny Growth Assistant — Grounded Knowledge & Artifact Studio</title>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <!-- Editorial Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container" id="app">
+    
+    <!-- 1. Left Archive Rail (Session History) -->
+    <aside class="archive-rail" aria-label="Session History">
+      <div class="archive-header">
+        <div>
+          <div class="brand-title">
+            <span>The Lenny Assistant</span>
+          </div>
+          <div class="brand-subtitle">Knowledge & Essay Studio</div>
+        </div>
+        <button class="new-session-btn" id="newSessionBtn" aria-label="Start new session">
+          <span>+</span>
+          <span>New Session</span>
+        </button>
+      </div>
+
+      <div class="session-list" id="sessionList" role="listbox" aria-label="Past Sessions">
+        <!-- Injected via app.js -->
+      </div>
+
+      <div class="archive-footer">
+        <div class="system-status-badge">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">System: Checking...</span>
+        </div>
+        <div class="system-status-badge" style="font-size: 0.72rem; color: var(--ink-faint);">
+          Postgres + pgvector | Seeded v1
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2. Center Reading Room (Chat Pane) -->
+    <main class="chat-pane" aria-label="Chat Conversation">
+      <header class="chat-header">
+        <div>
+          <h1 style="font-family: var(--font-editorial); font-size: 1.15rem; font-weight: 600;">
+            Grounded Conversation
+          </h1>
+          <span style="font-size: 0.75rem; color: var(--ink-muted);">Strictly grounded in Lenny's Podcast transcripts</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button class="open-artifact-btn" id="openArtifactBtn" aria-label="Open Artifact Studio">
+            Artifact Studio
+          </button>
+          <div class="model-config-badge" id="modelBadge">
+            <label for="providerSelector" style="font-size: 0.72rem; text-transform: uppercase;">Provider:</label>
+            <select id="providerSelector" class="model-toggle-select" aria-label="Active Model Provider">
+              <option value="ollama">Ollama (Local)</option>
+              <option value="anthropic">Anthropic Claude</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <!-- Messages Stream -->
+      <section class="chat-messages" id="chatMessages" aria-live="polite">
+        <!-- Initial suggestions or conversational turns injected here -->
+      </section>
+
+      <!-- Composer -->
+      <footer class="chat-composer">
+        <div class="composer-wrapper">
+          <div class="prompt-suggestions" id="promptSuggestions">
+            <button class="prompt-pill" data-prompt="What did Elena Verna say about B2B pricing experiments?">Elena Verna: Pricing Experiments</button>
+            <button class="prompt-pill" data-prompt="Explain Brian Balfour's growth loops vs traditional funnels.">Balfour: Growth Loops</button>
+            <button class="prompt-pill" data-prompt="Turn Casey Winters' activation advice into a Ship 30 for 30 essay.">Essay: Casey Winters on Activation</button>
+            <button class="prompt-pill" data-prompt="Generate an HTML table comparing SPADE decision framework roles.">Artifact: SPADE Framework Table</button>
+          </div>
+
+          <form id="chatForm" class="input-row">
+            <textarea
+              id="messageInput"
+              class="chat-input"
+              rows="1"
+              placeholder="Ask a grounded product question or request an essay/artifact..."
+              required
+            ></textarea>
+            <button type="submit" id="sendBtn" class="send-btn" aria-label="Send message">Send</button>
+          </form>
+        </div>
+      </footer>
+    </main>
+
+    <!-- 3. Right Artifact Studio (Claude-style Side Panel) -->
+    <aside class="artifact-studio" id="artifactStudio" aria-label="Artifact Studio">
+      <div class="studio-header">
+        <span class="studio-title" id="artifactTitle">Artifact Studio</span>
+        <div class="studio-tabs">
+          <button class="studio-tab active" id="tabRendered">Rendered</button>
+          <button class="studio-tab" id="tabSource">Raw</button>
+          <button class="studio-tab" id="tabClose" style="margin-left: 6px;">✕</button>
+        </div>
+      </div>
+
+      <div class="artifact-content-container" id="artifactContainer">
+        <div class="empty-artifact-state" id="emptyArtifact">
+          <p style="font-family: var(--font-editorial); font-size: 1.1rem; margin-bottom: 8px;">No Artifact Open</p>
+          <p style="font-size: 0.85rem;">Ask the assistant to produce an essay, document, or HTML snippet to inspect it here.</p>
+        </div>
+
+        <!-- Sandboxed iframe for HTML/CSS rendering per ADR-2 -->
+        <iframe
+          id="artifactIframe"
+          class="artifact-iframe"
+          sandbox="allow-same-origin"
+          title="Sandboxed Artifact Preview"
+          style="display: none;"
+        ></iframe>
+
+        <!-- Markdown / Raw viewer -->
+        <div id="artifactMarkdown" class="artifact-markdown-view" style="display: none;"></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+[
+  {
+    "title": "Elena Verna on B2B Product-Led Growth and Pricing Experiments",
+    "url": "https://www.lennyspodcast.com/elena-verna-plg",
+    "date": "2024-03-15",
+    "content": "Elena Verna explains that pricing experiments should never be done haphazardly. You should first understand your value metric before testing price points. If users get value from seats, charge by seats. If they get value from compute or transactions, align pricing to that value metric. The biggest mistake B2B startups make is setting pricing in stone early on and being afraid of grandfathering existing customers. Run willingness-to-pay surveys and test price increases on new cohorts first to minimize churn risk.\n\nElena also emphasizes that PLG (Product-Led Growth) and sales-led growth are not opposing philosophies. In reality, the most successful modern SaaS companies use product-led growth to capture the bottom-up user base, build genuine retention, and then deploy sales-assisted motions to expand enterprise contracts. If your product does not solve an immediate pain in the first 5 minutes of self-serve onboarding, an enterprise sales team will not save you in the long run."
+  },
+  {
+    "title": "Brian Balfour on Growth Loops vs. Traditional Funnels",
+    "url": "https://www.lennyspodcast.com/brian-balfour-growth-loops",
+    "date": "2023-11-20",
+    "content": "Brian Balfour discusses why traditional acquisition funnels are broken. Funnels imply that you pour money or traffic into the top and lose velocity at the bottom. In contrast, growth loops are closed systems where an action taken by a user generates an output that feeds back into new input for the system.\n\nThere are three primary archetypes of growth loops: viral loops, content loops, and paid loops. A viral loop occurs when using the product inherently invites another person, like Loom or Figma. A content loop occurs when user activity creates public, indexable content that attracts search traffic, such as Pinterest or Stack Overflow. When diagnosing growth plateaus, do not ask how to get more top-of-funnel traffic; ask which step of your compounding loop is experiencing friction."
+  },
+  {
+    "title": "Casey Winters on Retention, Activation, and Churn",
+    "url": "https://www.lennyspodcast.com/casey-winters-retention",
+    "date": "2023-08-10",
+    "content": "Casey Winters argues that retention is the single most critical health metric for any tech business. Without retention, acquisition is simply a leaky bucket that exhausts your market. Most teams misunderstand activation. Activation is not simply signing up or completing a checklist. Activation is the moment a user experiences the core value proposition of your product—the aha moment—and establishes an ongoing habit.\n\nTo find your product's true activation milestone, perform cohort analysis comparing users who retained for 90 days against users who churned within week one. Look at the specific actions retained users performed during their first 72 hours. At Pinterest, we discovered that pinning at least three times in the first week dramatically correlated with long-term retention. Once you identify that threshold, orient your entire onboarding flow to drive users directly to that behavior with zero extraneous distraction."
+  },
+  {
+    "title": "Shreyas Doshi on Product Strategy and High-Leverage Frameworks",
+    "url": "https://www.lennyspodcast.com/shreyas-doshi-product-strategy",
+    "date": "2023-05-04",
+    "content": "Shreyas Doshi shares his LNO framework for time and impact management for product managers. Tasks are divided into Leverage (10x impact), Neutral (table stakes work that keeps operations running), and Overhead (bureaucracy, status updates, unnecessary meetings). The highest leverage work a product leader can do is clarifying product strategy and aligning cross-functional teams around a compelling narrative.\n\nGood product strategy is not a roadmap of features. A strategy is a cohesive set of choices about where you will play, how you will win, and what you deliberately choose NOT to do. If your strategy document does not make anyone uncomfortable or does not explicitly rule out attractive opportunities, you do not have a strategy; you have a wish list."
+  },
+  {
+    "title": "Gokul Rajaram on the SPADE Decision-Making Framework",
+    "url": "https://www.lennyspodcast.com/gokul-rajaram-spade-framework",
+    "date": "2023-02-18",
+    "content": "Gokul Rajaram breaks down the SPADE framework for high-stakes decision making in fast-moving product teams. SPADE stands for Setting, People, Alternatives, Decide, and Explain.\n\nThe Setting defines what the decision is really about and why it matters now. People defines the roles: the single Responsible decider, the Approver, the Consulted contributors, and the Informed stakeholders. Alternatives requires laying out at least three genuinely viable options, not strawmen designed to make your favorite option look good. Once the Decider chooses, they must Explain the rationale clearly in writing to the entire team, acknowledging trade-offs and dissent."
+  }
+]
