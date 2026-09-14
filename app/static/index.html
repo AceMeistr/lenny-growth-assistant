@@ -4,41 +4,49 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Lenny Growth Assistant — Grounded Knowledge & Artifact Studio</title>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <!-- Editorial Google Fonts -->
+  
+  <!-- Human-Centric Editorial Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/css/design-system.css?v=3.1">
 </head>
 <body>
-  <div class="app-container" id="app">
+  <div class="app-container" id="appContainer">
     
-    <!-- 1. Left Archive Rail (Session History) -->
-    <aside class="archive-rail" aria-label="Session History">
-      <div class="archive-header">
-        <div>
-          <div class="brand-title">
-            <span>The Lenny Assistant</span>
-          </div>
-          <div class="brand-subtitle">Knowledge & Essay Studio</div>
-        </div>
-        <button class="new-session-btn" id="newSessionBtn" aria-label="Start new session">
-          <span>+</span>
-          <span>New Session</span>
+    <!-- 1. Left Nav & Sessions (Editorial Master Index) -->
+    <aside class="sidebar" aria-label="Session Index">
+      <div class="sidebar-header">
+        <div class="brand-title">THE LENNY ASSISTANT</div>
+        <div class="brand-subtitle">Grounded Knowledge Co-pilot</div>
+        <button id="newSessionBtn" class="new-session-btn" aria-label="Start new conversation">
+          <span>+ New Conversation</span>
+        </button>
+      <div class="sidebar-tab-switcher">
+        <button id="sidebarTabChats" class="sidebar-tab active">
+          💬 Chats (<span id="sessionCount">0</span>)
+        </button>
+        <button id="sidebarTabArtifacts" class="sidebar-tab">
+          📑 Artifacts (<span id="artifactCount">0</span>)
         </button>
       </div>
 
-      <div class="session-list" id="sessionList" role="listbox" aria-label="Past Sessions">
-        <!-- Injected via app.js -->
+      <div class="sidebar-sessions" id="sessionList" role="listbox" aria-label="Conversational Sessions">
+        <!-- Sessions dynamically injected here -->
       </div>
 
-      <div class="archive-footer">
-        <div class="system-status-badge">
+      <div class="sidebar-artifacts" id="artifactList" role="listbox" aria-label="Artifact Files" style="display: none;">
+        <!-- Artifact files dynamically injected here -->
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="system-status-indicator">
           <span class="status-dot" id="statusDot"></span>
-          <span id="statusText">System: Checking...</span>
+          <span class="status-text" id="statusText">Checking system health...</span>
         </div>
         <div class="system-status-badge" style="font-size: 0.72rem; color: var(--ink-faint);">
-          Postgres + pgvector | Seeded v1
+          Postgres / SQLite + pgvector | Seeded v1
         </div>
       </div>
     </aside>
@@ -53,7 +61,7 @@
           <span style="font-size: 0.75rem; color: var(--ink-muted);">Strictly grounded in Lenny's Podcast transcripts</span>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
           <button class="open-artifact-btn" id="openArtifactBtn" aria-label="Open Artifact Studio">
             Artifact Studio
           </button>
@@ -62,8 +70,13 @@
             <select id="providerSelector" class="model-toggle-select" aria-label="Active Model Provider">
               <option value="ollama">Ollama (Local)</option>
               <option value="anthropic">Anthropic Claude</option>
+              <option value="openai">OpenAI</option>
+              <option value="custom">Custom API</option>
             </select>
           </div>
+          <button class="settings-btn" id="openSettingsBtn" title="Connect External Model or API Key" aria-label="API Settings">
+            ⚙ Settings
+          </button>
         </div>
       </header>
 
@@ -99,18 +112,33 @@
     <!-- 3. Right Artifact Studio (Claude-style Side Panel) -->
     <aside class="artifact-studio" id="artifactStudio" aria-label="Artifact Studio">
       <div class="studio-header">
-        <span class="studio-title" id="artifactTitle">Artifact Studio</span>
-        <div class="studio-tabs">
-          <button class="studio-tab active" id="tabRendered">Rendered</button>
-          <button class="studio-tab" id="tabSource">Raw</button>
-          <button class="studio-tab" id="tabClose" style="margin-left: 6px;">✕</button>
+        <div class="studio-title-area">
+          <span class="studio-title" id="artifactTitle">Artifact Studio</span>
+          <select id="artifactFileSelect" class="artifact-file-select" title="Switch between generated artifacts" aria-label="Select Artifact File">
+            <option value="">-- Switch Artifact (0) --</option>
+          </select>
+        </div>
+        <div class="studio-actions">
+          <div class="studio-tabs">
+            <button class="studio-tab active" id="tabRendered" title="View formatted rendering">Rendered</button>
+            <button class="studio-tab" id="tabSource" title="View raw source code">Raw</button>
+          </div>
+          <button class="studio-action-btn" id="btnCopyArtifact" title="Copy raw code to clipboard">
+            📋 Copy
+          </button>
+          <button class="studio-action-btn" id="btnDownloadArtifact" title="Download artifact file">
+            ⬇ Download
+          </button>
+          <button class="studio-action-btn close-artifact-btn" id="btnCloseArtifact" title="Close this artifact">
+            ✕ Close
+          </button>
         </div>
       </div>
 
       <div class="artifact-content-container" id="artifactContainer">
         <div class="empty-artifact-state" id="emptyArtifact">
           <p style="font-family: var(--font-editorial); font-size: 1.1rem; margin-bottom: 8px;">No Artifact Open</p>
-          <p style="font-size: 0.85rem;">Ask the assistant to produce an essay, document, or HTML snippet to inspect it here.</p>
+          <p style="font-size: 0.85rem; max-width: 320px; line-height: 1.6;">Ask the assistant to produce a framework table, essay, or HTML snippet to inspect and download it here.</p>
         </div>
 
         <!-- Sandboxed iframe for HTML/CSS rendering per ADR-2 -->
@@ -122,13 +150,70 @@
           style="display: none;"
         ></iframe>
 
-        <!-- Markdown / Raw viewer -->
+        <!-- Rendered Markdown view -->
         <div id="artifactMarkdown" class="artifact-markdown-view" style="display: none;"></div>
+
+        <!-- Raw source code view -->
+        <div id="artifactRawContainer" class="artifact-raw-container" style="display: none;">
+          <pre class="artifact-raw-pre"><code id="artifactRawCode"></code></pre>
+        </div>
       </div>
     </aside>
 
   </div>
 
-  <script src="/js/app.js"></script>
+  <!-- 4. Model & API Settings Modal -->
+  <div id="settingsModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title">External Model & API Settings</h2>
+        <button id="closeSettingsBtn" class="modal-close-btn" aria-label="Close settings">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Connect to external model APIs (Anthropic Claude, OpenAI, or custom OpenAI-compatible endpoints) or switch to local Ollama.
+        </p>
+        
+        <div class="form-group">
+          <label for="modalProviderSelect" class="form-label">Active Provider</label>
+          <select id="modalProviderSelect" class="form-control">
+            <option value="ollama">Ollama (Local phi3 / 11434)</option>
+            <option value="anthropic">Anthropic Claude (claude-3-5-sonnet)</option>
+            <option value="openai">OpenAI (gpt-4o / gpt-4o-mini)</option>
+            <option value="custom">Custom OpenAI-Compatible API</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="apiKeyGroup">
+          <label for="modalApiKey" class="form-label">API Key</label>
+          <div class="input-with-toggle">
+            <input type="password" id="modalApiKey" class="form-control" placeholder="sk-ant-... or sk-proj-..." autocomplete="off">
+            <button type="button" id="toggleApiKeyVisibility" class="toggle-btn" title="Toggle visibility">👁</button>
+          </div>
+          <small class="form-help">Stored safely in your browser session for direct API invocation.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="modalModelName" class="form-label">Model Identifier</label>
+          <input type="text" id="modalModelName" class="form-control" placeholder="e.g. phi3, claude-3-5-sonnet-20241022, gpt-4o-mini">
+        </div>
+
+        <div class="form-group" id="baseUrlGroup">
+          <label for="modalBaseUrl" class="form-label">API Base URL (Optional)</label>
+          <input type="text" id="modalBaseUrl" class="form-control" placeholder="e.g. http://localhost:11434 or https://api.openai.com/v1">
+          <small class="form-help">Leave empty to use official provider default endpoint.</small>
+        </div>
+
+        <div id="connectionStatus" class="connection-status" style="display: none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btnTestConnection" class="btn-secondary">Test Connection</button>
+        <button type="button" id="btnSaveSettings" class="btn-primary">Save & Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js?v=4.0"></script>
 </body>
 </html>

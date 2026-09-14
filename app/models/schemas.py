@@ -23,6 +23,21 @@ class ConfigResponse(BaseModel):
     llm_fallback_to_local: bool
     similarity_threshold: float
     retrieval_top_k: int
+    supported_providers: List[str] = ["ollama", "anthropic", "openai", "custom"]
+
+
+class ModelConfigTestRequest(BaseModel):
+    provider: str
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+
+
+class ModelConfigTestResponse(BaseModel):
+    status: str
+    message: str
+    provider: str
+    model: str
 
 
 # Error Schema conforming to architecture.md §5
@@ -64,6 +79,9 @@ class Citation(BaseModel):
 class MessageCreateRequest(BaseModel):
     content: str = Field(min_length=1, max_length=10000)
     provider_override: Optional[str] = None
+    api_key_override: Optional[str] = None
+    model_override: Optional[str] = None
+    base_url_override: Optional[str] = None
 
 
 class MessageResponse(BaseModel):

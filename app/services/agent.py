@@ -45,9 +45,13 @@ class AgentOrchestrator:
         p = prompt.lower()
         if any(term in p for term in ["ship 30", "ship30", "write an essay", "essay on", "turn this into an essay", "draft an essay"]):
             return "ship30"
-        if any(term in p for term in ["html artifact", "create html", "generate html", "make an html", "html table", "html snippet", "html page"]):
+        if any(term in p for term in ["html artifact", "create html", "generate html", "make an html", "html table", "html snippet", "html page", "html card"]):
             return "artifact_html"
-        if any(term in p for term in ["markdown artifact", "generate doc", "create document", "make an artifact", "markdown table", "markdown summary", "create an artifact", "generate artifact"]):
+        if any(term in p for term in [
+            "table", "summary table", "markdown artifact", "generate doc", "create document",
+            "make an artifact", "markdown table", "markdown summary", "create an artifact",
+            "generate artifact", "cheatsheet", "framework table", "matrix", "guide", "spade table"
+        ]):
             return "artifact_md"
         return "qa"
 
@@ -55,7 +59,10 @@ class AgentOrchestrator:
         self,
         session_id: str,
         user_content: str,
-        provider_override: Optional[str] = None
+        provider_override: Optional[str] = None,
+        api_key_override: Optional[str] = None,
+        model_override: Optional[str] = None,
+        base_url_override: Optional[str] = None
     ) -> ChatTurnResponse:
         """Execute a full conversational turn with grounding and persistence."""
         start_time = time.time()
@@ -80,8 +87,13 @@ class AgentOrchestrator:
 
         # 3. Resolve Provider
         provider_name = provider_override or session.active_provider or settings.llm_provider
-        provider = ProviderFactory.get_provider(provider_name)
-        is_cloud = (provider.provider_name == "anthropic")
+        provider = ProviderFactory.get_provider(
+            provider_name=provider_name,
+            api_key=api_key_override,
+            model=model_override,
+            base_url=base_url_override
+        )
+        is_cloud = (provider.provider_name in ("anthropic", "openai", "custom"))
 
         # 4. Generate query embedding for vector retrieval
         query_vectors = await provider.get_embeddings([user_content])
@@ -103,8 +115,18 @@ class AgentOrchestrator:
         fallback_used = False
         provider_used = provider.provider_name
 
-        # If question is general Q&A and zero citations are found, enforce honest refusal
-        if intent == "qa" and not citations:
+        # Check for friendly conversational greeting vs ungrounded refusal
+        clean_prompt = user_content.strip().lower().rstrip(".!?")
+        is_greeting = clean_prompt in ("hi", "hello", "hey", "good morning", "good afternoon", "greetings", "hi there", "help")
+
+        if is_greeting:
+            answer_content = (
+                "Hello! I am The Lenny Growth Assistant, an internal co-pilot strictly grounded in Lenny's Podcast transcripts.\n\n"
+                "I can help you explore verified product strategies (such as Elena Verna on pricing experiments, Brian Balfour on growth loops, Casey Winters on activation, or Gokul Rajaram on the SPADE framework), "
+                "draft atomic Ship 30 for 30 essays, or render structured artifacts beside our chat."
+            )
+            provider_used = provider.provider_name
+        elif intent == "qa" and not citations:
             answer_content = (
                 "I cannot find support for this question in the ingested podcast transcripts. "
                 "Lenny's back-catalog does not appear to cover this specific query in the current corpus."

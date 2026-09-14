@@ -27,7 +27,9 @@ from app.models.schemas import (
     SessionResponse,
     MessageCreateRequest,
     ChatTurnResponse,
-    ArtifactResponse
+    ArtifactResponse,
+    ModelConfigTestRequest,
+    ModelConfigTestResponse
 )
 from app.providers.factory import ProviderFactory
 from app.services.agent import AgentOrchestrator
@@ -91,13 +93,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 # 404 JSON handler: prevents static file mount from swallowing API misses as HTML 404s
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
-    # Only return JSON 404 for /api paths — let static handler serve HTML for UI routes
-    if request.url.path.startswith(("/sessions", "/artifacts", "/health", "/config")):
-        return JSONResponse(
-            status_code=404,
-            content={"error": {"code": "NOT_FOUND", "message": str(exc.detail)}}
-        )
-    raise exc
+    detail = getattr(exc, "detail", "Not Found")
+    return JSONResponse(
+        status_code=404,
+        content={"error": {"code": "NOT_FOUND", "message": str(detail)}}
+    )
 
 
 # --- System & Observability Endpoints ---
@@ -132,6 +132,39 @@ def get_config():
         similarity_threshold=settings.similarity_threshold,
         retrieval_top_k=settings.retrieval_top_k
     )
+
+
+@app.post("/config/test-model", response_model=ModelConfigTestResponse, tags=["System"])
+async def test_model_config(req: ModelConfigTestRequest):
+    """Test connectivity to an external model provider (Ollama, Anthropic, OpenAI)."""
+    try:
+        provider = ProviderFactory.get_provider(
+            provider_name=req.provider,
+            api_key=req.api_key,
+            model=req.model,
+            base_url=req.base_url
+        )
+        is_healthy = await provider.health_check()
+        if not is_healthy and req.provider in ("anthropic", "openai") and not req.api_key:
+            return ModelConfigTestResponse(
+                status="unconfigured",
+                message=f"No API key provided for {req.provider}.",
+                provider=req.provider,
+                model=provider.model
+            )
+        return ModelConfigTestResponse(
+            status="success" if is_healthy else "warning",
+            message=f"Connected to {req.provider} ({provider.model}) successfully.",
+            provider=req.provider,
+            model=provider.model
+        )
+    except Exception as e:
+        return ModelConfigTestResponse(
+            status="error",
+            message=f"Connection test failed: {str(e)}",
+            provider=req.provider,
+            model=req.model or "unknown"
+        )
 
 
 # --- Session Management Endpoints ---
@@ -218,6 +251,22 @@ def get_session_history(session_id: str, db: DBSession = Depends(get_db)):
     }
 
 
+@app.delete("/sessions/{session_id}", tags=["Sessions"])
+def delete_session(session_id: str, db: DBSession = Depends(get_db)):
+    """Delete a conversational session, including all its messages and artifacts."""
+    session = db.query(ChatSession).filter_by(id=session_id).first()
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": f"Session '{session_id}' not found."}}
+        )
+    db.query(Message).filter_by(session_id=session_id).delete()
+    db.query(Artifact).filter_by(session_id=session_id).delete()
+    db.delete(session)
+    db.commit()
+    return {"status": "deleted", "id": session_id}
+
+
 # --- Message & Conversation Endpoints ---
 
 @app.post("/sessions/{session_id}/messages", response_model=ChatTurnResponse, tags=["Chat"])
@@ -228,7 +277,10 @@ async def send_message(session_id: str, req: MessageCreateRequest, db: DBSession
         turn = await orchestrator.process_chat_turn(
             session_id=session_id,
             user_content=req.content,
-            provider_override=req.provider_override
+            provider_override=req.provider_override,
+            api_key_override=req.api_key_override,
+            model_override=req.model_override,
+            base_url_override=req.base_url_override
         )
         return turn
     except ValueError as e:
@@ -264,6 +316,24 @@ def list_session_artifacts(session_id: str, db: DBSession = Depends(get_db)):
     ]
 
 
+@app.get("/artifacts", response_model=List[ArtifactResponse], tags=["Artifacts"])
+def list_all_artifacts(db: DBSession = Depends(get_db)):
+    """List all generated artifacts across all sessions."""
+    artifacts = db.query(Artifact).order_by(Artifact.created_at.desc()).all()
+    return [
+        ArtifactResponse(
+            id=a.id,
+            session_id=a.session_id,
+            message_id=a.message_id,
+            type=a.type,
+            title=a.title,
+            content=a.content,
+            created_at=a.created_at
+        )
+        for a in artifacts
+    ]
+
+
 @app.get("/artifacts/{artifact_id}", response_model=ArtifactResponse, tags=["Artifacts"])
 def get_artifact(artifact_id: str, db: DBSession = Depends(get_db)):
     """Retrieve a single generated artifact and its content."""
@@ -282,6 +352,20 @@ def get_artifact(artifact_id: str, db: DBSession = Depends(get_db)):
         content=artifact.content,
         created_at=artifact.created_at
     )
+
+
+@app.delete("/artifacts/{artifact_id}", tags=["Artifacts"])
+def delete_artifact(artifact_id: str, db: DBSession = Depends(get_db)):
+    """Delete an artifact by ID."""
+    artifact = db.query(Artifact).filter_by(id=artifact_id).first()
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "ARTIFACT_NOT_FOUND", "message": f"Artifact '{artifact_id}' does not exist."}}
+        )
+    db.delete(artifact)
+    db.commit()
+    return {"status": "deleted", "id": artifact_id}
 
 
 # --- Static UI Mount ---

@@ -24,6 +24,7 @@ def test_config_endpoint():
     data = response.json()
     assert "active_provider" in data
     assert "similarity_threshold" in data
+    assert "supported_providers" in data
 
 
 def test_session_lifecycle():
@@ -46,6 +47,23 @@ def test_session_lifecycle():
     hist_data = hist_res.json()
     assert "messages" in hist_data
     assert "artifacts" in hist_data
+
+    # 4. Delete Session
+    del_res = client.delete(f"/sessions/{session_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "deleted"
+
+    # 5. Verify 404 after deletion
+    get_del = client.get(f"/sessions/{session_id}")
+    assert get_del.status_code == 404
+
+
+def test_test_model_endpoint():
+    res = client.post("/config/test-model", json={"provider": "ollama", "model": "phi3"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "phi3" in data["model"]
 
 
 def test_send_message_endpoint():

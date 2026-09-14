@@ -3,11 +3,12 @@ Provider factory with resilient fallback mechanics per architecture.md ADR-1.
 """
 
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 from app.config import settings
 from app.providers.base import LLMProvider
 from app.providers.anthropic_provider import AnthropicProvider
 from app.providers.ollama_provider import OllamaProvider
+from app.providers.openai_provider import OpenAIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +17,23 @@ class ProviderFactory:
     """Resolves active LLMProvider and orchestrates seamless fallback."""
 
     @staticmethod
-    def get_provider(provider_name: Optional[str] = None) -> LLMProvider:
+    def get_provider(
+        provider_name: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None
+    ) -> LLMProvider:
         """Resolve requested provider or default from configuration."""
         name = (provider_name or settings.llm_provider).lower()
         if name == "anthropic":
-            return AnthropicProvider()
+            return AnthropicProvider(api_key=api_key, model=model)
+        elif name in ("openai", "custom"):
+            return OpenAIProvider(api_key=api_key, model=model, base_url=base_url)
         elif name == "ollama":
-            return OllamaProvider()
+            return OllamaProvider(base_url=base_url, model=model)
         else:
             logger.warning("Unknown provider '%s', defaulting to ollama", name)
-            return OllamaProvider()
+            return OllamaProvider(base_url=base_url, model=model)
 
     @staticmethod
     async def execute_with_fallback(
@@ -33,7 +41,7 @@ class ProviderFactory:
         func_name: str,
         *args,
         **kwargs
-    ) -> Tuple[any, bool]:
+    ) -> Tuple[Any, bool]:
         """
         Executes a method on the provider. If it fails and fallback is enabled,
         retries with the local Ollama provider.
